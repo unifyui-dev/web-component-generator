@@ -39,3 +39,7 @@ interface NavigationBar {
   navLogoColor: string;
   navLogoText: string;
 }
+
+interface Page {
+  children: any[];
+}

@@ -1,0 +1,126 @@
+{
+  "type": "Grid",
+  "styleMap": {
+    "gridTemplateColumns": "repeat(auto-fit, minmax(300px, 1fr))",
+    "gap": "24",
+    "padding": "32",
+    "width": "100%",
+    "minHeight": "100vh"
+  },
+  "children": [],
+  "example": {
+    "children": [
+      {
+        "type": "Container",
+        "styleMap": {
+          "display": "flex",
+          "flexDirection": "column",
+          "backgroundColor": "#ffffff",
+          "borderRadius": 8,
+          "padding": 20,
+          "borderWidth": 1,
+          "borderColor": "#e0e0e0"
+        },
+        "children": [
+          {
+            "type": "Text",
+            "data": {
+              "content": "Page Item 1"
+            },
+            "styleMap": {
+              "fontSize": 20,
+              "fontWeight": "600",
+              "color": "#333333",
+              "marginBottom": 8
+            }
+          },
+          {
+            "type": "Text",
+            "data": {
+              "content": "This is a sample page item that demonstrates the responsive grid layout."
+            },
+            "styleMap": {
+              "fontSize": 14,
+              "color": "#666666",
+              "lineHeight": 1.5
+            }
+          }
+        ]
+      },
+      {
+        "type": "Container",
+        "styleMap": {
+          "display": "flex",
+          "flexDirection": "column",
+          "backgroundColor": "#ffffff",
+          "borderRadius": 8,
+          "padding": 20,
+          "borderWidth": 1,
+          "borderColor": "#e0e0e0"
+        },
+        "children": [
+          {
+            "type": "Text",
+            "data": {
+              "content": "Page Item 2"
+            },
+            "styleMap": {
+              "fontSize": 20,
+              "fontWeight": "600",
+              "color": "#333333",
+              "marginBottom": 8
+            }
+          },
+          {
+            "type": "Text",
+            "data": {
+              "content": "Another page item showing how children can be passed into the grid."
+            },
+            "styleMap": {
+              "fontSize": 14,
+              "color": "#666666",
+              "lineHeight": 1.5
+            }
+          }
+        ]
+      },
+      {
+        "type": "Container",
+        "styleMap": {
+          "display": "flex",
+          "flexDirection": "column",
+          "backgroundColor": "#ffffff",
+          "borderRadius": 8,
+          "padding": 20,
+          "borderWidth": 1,
+          "borderColor": "#e0e0e0"
+        },
+        "children": [
+          {
+            "type": "Text",
+            "data": {
+              "content": "Page Item 3"
+            },
+            "styleMap": {
+              "fontSize": 20,
+              "fontWeight": "600",
+              "color": "#333333",
+              "marginBottom": 8
+            }
+          },
+          {
+            "type": "Text",
+            "data": {
+              "content": "The grid automatically adjusts to different screen sizes."
+            },
+            "styleMap": {
+              "fontSize": 14,
+              "color": "#666666",
+              "lineHeight": 1.5
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

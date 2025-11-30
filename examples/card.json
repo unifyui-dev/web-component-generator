@@ -24,11 +24,12 @@
       },
       "styleMap": {
         "width": "100%",
-        "height": 200
+        "height": 200,
+        "objectFit": "cover"
       },
       "example": {
         "data": {
-          "src": "https://example.com/card-image.jpg"
+          "src": "https://placehold.co/400"
         }
       }
     },

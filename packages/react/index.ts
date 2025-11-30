@@ -203,7 +203,8 @@ function generateImports(types: Set<string>): string {
 function jsonToJsx(
   node: any,
   placeholderMap: Map<string, string>,
-  interfaceProps: Record<string, string>
+  interfaceProps: Record<string, string>,
+  isRoot: boolean = false
 ): string {
   if (typeof node === "string" || typeof node === "number") {
     return node.toString();
@@ -280,7 +281,7 @@ function jsonToJsx(
     propStr += (propStr ? " " : "") + `data={{ ${dataEntries.join(", ")} }}`;
   }
 
-  // Compose children: data.content (for text), then children
+  // Compose children: data.content (for text), then children from JSON, then props.children if root
   let childrenJsx = "";
   if (data && data.content !== undefined) {
     // Check if original content is a placeholder
@@ -315,10 +316,14 @@ function jsonToJsx(
   }
   if (Array.isArray(children)) {
     childrenJsx += children
-      .map((child) => jsonToJsx(child, placeholderMap, interfaceProps))
+      .map((child) => jsonToJsx(child, placeholderMap, interfaceProps, false))
       .join("");
   } else if (children) {
-    childrenJsx += jsonToJsx(children, placeholderMap, interfaceProps);
+    childrenJsx += jsonToJsx(children, placeholderMap, interfaceProps, false);
+  }
+  // If this is the root node, add props.children so users can pass children
+  if (isRoot) {
+    childrenJsx += "{props.children}";
   }
   return `<${type}${propStr ? " " + propStr : ""}>${childrenJsx}</${type}>`;
 }
@@ -326,12 +331,19 @@ function jsonToJsx(
 // Helper to generate interface definition string
 function generateInterface(
   interfaceName: string,
-  props: Record<string, string>
+  props: Record<string, string>,
+  includeChildren: boolean = false
 ): string {
   const propLines = Object.entries(props)
     .map(([name, type]) => `  ${name}: ${type};`)
     .join("\n");
-  return `interface ${interfaceName} {\n${propLines}\n}`;
+  const childrenLine = includeChildren ? "  children?: React.ReactNode;" : "";
+  const allPropLines = propLines
+    ? childrenLine
+      ? `${propLines}\n${childrenLine}`
+      : propLines
+    : childrenLine;
+  return `interface ${interfaceName} {\n${allPropLines}\n}`;
 }
 
 // Helper to create a valid React component name from filename
@@ -367,19 +379,29 @@ function generateComponents() {
     // Generate imports for the used components
     const imports = generateImports(componentTypes);
 
-    // Generate interface definition if it exists
+    // Get root component type to check if it accepts children
+    const rootComponentType = json?.type;
+    // All components (Grid, Container, Text, Image) accept children
+    const rootAcceptsChildren =
+      rootComponentType &&
+      ["Grid", "Container", "Text", "Image"].includes(rootComponentType);
+
+    // Generate interface definition if it exists or if root accepts children
     let interfaceDef = "";
-    if (Object.keys(interfaceProps).length > 0) {
-      interfaceDef = generateInterface(componentName, interfaceProps) + "\n\n";
+    if (Object.keys(interfaceProps).length > 0 || rootAcceptsChildren) {
+      interfaceDef =
+        generateInterface(componentName, interfaceProps, rootAcceptsChildren) +
+        "\n\n";
     }
 
-    // Generate JSX with placeholder replacement
-    const jsx = jsonToJsx(json, placeholderMap, interfaceProps);
+    // Generate JSX with placeholder replacement (pass isRoot=true for root node)
+    const jsx = jsonToJsx(json, placeholderMap, interfaceProps, true);
 
     // Generate component signature
-    const componentSignature = interfaceProps
-      ? `export const ${componentName} = (props: ${componentName}) => (`
-      : `export const ${componentName} = () => (`;
+    const componentSignature =
+      Object.keys(interfaceProps).length > 0 || rootAcceptsChildren
+        ? `export const ${componentName} = (props: ${componentName}) => (`
+        : `export const ${componentName} = () => (`;
 
     // Combine imports, interface, and component
     const component = `${imports}${interfaceDef}${componentSignature}\n  ${jsx}\n);\n`;
