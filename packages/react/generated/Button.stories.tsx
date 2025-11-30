@@ -1,6 +1,7 @@
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import { Button } from './Button';
+import './Button.css';
 
 const meta: Meta<typeof Button> = {
   title: "Generated/Button",
@@ -13,7 +14,11 @@ type Story = StoryObj<typeof Button>;
 
 export const Default: Story = {
   args: {
-    buttonBgColor: "#0066cc",
-    buttonContent: "Click Me",
+    styleMap: {
+  "--button-bg-color": "#0066cc"
+},
+    data: {
+  "buttonContent": "Click Me"
+},
   },
 };

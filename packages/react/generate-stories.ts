@@ -26,69 +26,170 @@ function camelToKebab(str: string): string {
   return str.replace(/([A-Z])/g, "-$1").toLowerCase();
 }
 
+// Interface structure for parsed interfaces
+interface ParsedInterface {
+  styleMap?: Record<string, string>; // CSS variable names -> type
+  data?: Record<string, string>; // Data property names -> type
+  children?: boolean;
+}
+
 // Helper to parse interface definitions from .d.ts file
-function parseInterfaces(
-  typesFile: string
-): Map<string, Record<string, string>> {
-  const interfaces = new Map<string, Record<string, string>>();
+function parseInterfaces(typesFile: string): Map<string, ParsedInterface> {
+  const interfaces = new Map<string, ParsedInterface>();
   if (!fs.existsSync(typesFile)) {
     return interfaces;
   }
 
   const content = fs.readFileSync(typesFile, "utf-8");
-  const interfaceRegex = /interface\s+(\w+)\s*\{([^}]+)\}/g;
+
+  // Helper to find matching brace for interface body (handles nested braces)
+  function findInterfaceBody(
+    content: string,
+    startIndex: number
+  ): string | null {
+    let i = startIndex;
+    // Find the opening brace
+    while (i < content.length && content[i] !== "{") i++;
+    if (i >= content.length) return null;
+
+    let braceCount = 0;
+    const start = i;
+    while (i < content.length) {
+      if (content[i] === "{") braceCount++;
+      if (content[i] === "}") {
+        braceCount--;
+        if (braceCount === 0) {
+          return content.substring(start + 1, i);
+        }
+      }
+      i++;
+    }
+    return null;
+  }
+
+  // Helper to extract nested object content (handles nested braces)
+  function extractNestedObject(str: string, key: string): string | null {
+    const keyIndex = str.indexOf(key + ":");
+    if (keyIndex === -1) return null;
+
+    let start = keyIndex + key.length + 1;
+    // Skip whitespace
+    while (start < str.length && /\s/.test(str[start])) start++;
+
+    if (str[start] !== "{") return null;
+
+    let braceCount = 0;
+    let i = start;
+    while (i < str.length) {
+      if (str[i] === "{") braceCount++;
+      if (str[i] === "}") {
+        braceCount--;
+        if (braceCount === 0) {
+          return str.substring(start + 1, i);
+        }
+      }
+      i++;
+    }
+    return null;
+  }
+
+  // Match interface declarations
+  const interfaceNameRegex = /interface\s+(\w+)\s*\{/g;
   let match;
 
-  while ((match = interfaceRegex.exec(content)) !== null) {
+  while ((match = interfaceNameRegex.exec(content)) !== null) {
     const interfaceName = match[1];
-    const body = match[2];
-    const props: Record<string, string> = {};
+    const bodyStart = match.index + match[0].length - 1; // Position of opening brace
+    const body = findInterfaceBody(content, bodyStart);
 
-    // Parse properties: propName: type;
-    const propRegex = /(\w+):\s*(\w+);/g;
-    let propMatch;
-    while ((propMatch = propRegex.exec(body)) !== null) {
-      props[propMatch[1]] = propMatch[2];
+    if (!body) continue;
+    const parsed: ParsedInterface = {};
+
+    // Check for nested styleMap object
+    const styleMapBody = extractNestedObject(body, "styleMap");
+    if (styleMapBody) {
+      parsed.styleMap = {};
+      // Parse CSS variable names: "--var-name": string;
+      const styleMapPropRegex = /"([^"]+)":\s*(\w+);/g;
+      let styleMapPropMatch;
+      while (
+        (styleMapPropMatch = styleMapPropRegex.exec(styleMapBody)) !== null
+      ) {
+        parsed.styleMap[styleMapPropMatch[1]] = styleMapPropMatch[2];
+      }
     }
 
-    interfaces.set(interfaceName, props);
+    // Check for nested data object
+    const dataBody = extractNestedObject(body, "data");
+    if (dataBody) {
+      parsed.data = {};
+      // Parse data properties: propName: type;
+      const dataPropRegex = /(\w+):\s*(\w+);/g;
+      let dataPropMatch;
+      while ((dataPropMatch = dataPropRegex.exec(dataBody)) !== null) {
+        parsed.data[dataPropMatch[1]] = dataPropMatch[2];
+      }
+    }
+
+    // Check for children property
+    if (body.includes("children:")) {
+      parsed.children = true;
+    }
+
+    interfaces.set(interfaceName, parsed);
   }
 
   return interfaces;
 }
 
-// Helper to create placeholder to prop mapping
+// Helper to create placeholder to prop mapping for CSS variables and data
 function createPlaceholderMap(
-  interfaceProps: Record<string, string>
-): Map<string, string> {
-  const mapping = new Map<string, string>();
-  for (const [propName, propType] of Object.entries(interfaceProps)) {
-    // Map both camelCase and kebab-case versions
-    mapping.set(propName, propName);
-    mapping.set(camelToKebab(propName), propName);
+  parsedInterface: ParsedInterface
+): Map<string, { type: "styleMap" | "data"; key: string }> {
+  const mapping = new Map<string, { type: "styleMap" | "data"; key: string }>();
 
-    // Handle numbered properties: breadcrumb1 -> breadcrumb-1
-    const numberedMatch = propName.match(/^([a-zA-Z]+)(\d+)$/);
-    if (numberedMatch) {
-      const base = numberedMatch[1];
-      const number = numberedMatch[2];
-      mapping.set(`${base}-${number}`, propName);
+  // Map CSS variables from styleMap
+  if (parsedInterface.styleMap) {
+    for (const cssVar of Object.keys(parsedInterface.styleMap)) {
+      mapping.set(cssVar, { type: "styleMap", key: cssVar });
+      const withoutPrefix = cssVar.replace(/^--/, "");
+      if (withoutPrefix !== cssVar) {
+        mapping.set(withoutPrefix, { type: "styleMap", key: cssVar });
+        const camelCase = kebabToCamel(withoutPrefix);
+        if (camelCase !== withoutPrefix) {
+          mapping.set(camelCase, { type: "styleMap", key: cssVar });
+        }
+      }
     }
   }
+
+  // Map data properties
+  if (parsedInterface.data) {
+    for (const dataProp of Object.keys(parsedInterface.data)) {
+      mapping.set(dataProp, { type: "data", key: dataProp });
+      mapping.set(camelToKebab(dataProp), { type: "data", key: dataProp });
+
+      const numberedMatch = dataProp.match(/^([a-zA-Z]+)(\d+)$/);
+      if (numberedMatch) {
+        const base = numberedMatch[1];
+        const number = numberedMatch[2];
+        mapping.set(`${base}-${number}`, { type: "data", key: dataProp });
+      }
+    }
+  }
+
   return mapping;
 }
 
-// Helper to get prop name from a placeholder
+// Helper to get prop name from a placeholder (for backward compatibility)
 function getPropNameFromPlaceholder(
   placeholder: string,
-  interfaceProps: Record<string, string>
+  parsedInterface: ParsedInterface
 ): string | null {
-  if (interfaceProps[placeholder]) {
-    return placeholder;
-  }
-  const camelCase = kebabToCamel(placeholder);
-  if (interfaceProps[camelCase]) {
-    return camelCase;
+  const mapping = createPlaceholderMap(parsedInterface);
+  const result = mapping.get(placeholder);
+  if (result && result.type === "data") {
+    return result.key;
   }
   return null;
 }
@@ -155,25 +256,28 @@ function mergeExampleData(node: any): any {
 // Helper to extract prop values from merged JSON using placeholders
 function extractPropValues(
   node: any,
-  placeholderMap: Map<string, string>,
-  interfaceProps: Record<string, string>,
-  propValues: Record<string, any> = {}
-): Record<string, any> {
+  placeholderMap: Map<string, { type: "styleMap" | "data"; key: string }>,
+  parsedInterface: ParsedInterface,
+  propValues: {
+    styleMap?: Record<string, any>;
+    data?: Record<string, any>;
+  } = {}
+): { styleMap?: Record<string, any>; data?: Record<string, any> } {
   if (!node || typeof node !== "object") {
     return propValues;
   }
 
   const { styleMap, data, children } = node;
 
-  // Extract from styleMap
+  // Extract from styleMap (CSS variables)
   if (styleMap && typeof styleMap === "object") {
+    if (!propValues.styleMap) propValues.styleMap = {};
     for (const [key, value] of Object.entries(styleMap)) {
       if (typeof value === "string") {
-        const propName =
-          placeholderMap.get(value) ||
-          getPropNameFromPlaceholder(value, interfaceProps);
-        if (propName) {
-          propValues[propName] = value; // Store placeholder, will be replaced later
+        const mapping = placeholderMap.get(value);
+        if (mapping && mapping.type === "styleMap") {
+          // Store the actual value (from example) for the CSS variable
+          propValues.styleMap[mapping.key] = value;
         }
       }
     }
@@ -181,13 +285,12 @@ function extractPropValues(
 
   // Extract from data
   if (data && typeof data === "object") {
+    if (!propValues.data) propValues.data = {};
     for (const [key, value] of Object.entries(data)) {
       if (typeof value === "string") {
-        const propName =
-          placeholderMap.get(value) ||
-          getPropNameFromPlaceholder(value, interfaceProps);
-        if (propName) {
-          propValues[propName] = value; // Store placeholder, will be replaced later
+        const mapping = placeholderMap.get(value);
+        if (mapping && mapping.type === "data") {
+          propValues.data[mapping.key] = value;
         }
       }
     }
@@ -196,10 +299,10 @@ function extractPropValues(
   // Recursively process children
   if (Array.isArray(children)) {
     children.forEach((child) => {
-      extractPropValues(child, placeholderMap, interfaceProps, propValues);
+      extractPropValues(child, placeholderMap, parsedInterface, propValues);
     });
   } else if (children) {
-    extractPropValues(children, placeholderMap, interfaceProps, propValues);
+    extractPropValues(children, placeholderMap, parsedInterface, propValues);
   }
 
   return propValues;
@@ -266,10 +369,13 @@ function replacePlaceholdersWithExamples(
 function findExampleValues(
   baseNode: any,
   mergedNode: any,
-  placeholderMap: Map<string, string>,
-  interfaceProps: Record<string, string>
-): Map<string, any> {
-  const exampleValues = new Map<string, any>();
+  placeholderMap: Map<string, { type: "styleMap" | "data"; key: string }>,
+  parsedInterface: ParsedInterface
+): { styleMap?: Record<string, any>; data?: Record<string, any> } {
+  const exampleValues: {
+    styleMap?: Record<string, any>;
+    data?: Record<string, any>;
+  } = {};
 
   function traverse(base: any, merged: any) {
     if (
@@ -289,12 +395,15 @@ function findExampleValues(
     // Check styleMap - find where placeholders were replaced with example values
     for (const [key, baseValue] of Object.entries(baseStyleMap)) {
       if (typeof baseValue === "string" && mergedStyleMap[key] !== undefined) {
-        const propName =
-          placeholderMap.get(baseValue) ||
-          getPropNameFromPlaceholder(baseValue, interfaceProps);
-        if (propName && !exampleValues.has(propName)) {
+        const mapping = placeholderMap.get(baseValue);
+        if (
+          mapping &&
+          mapping.type === "styleMap" &&
+          !exampleValues.styleMap?.[mapping.key]
+        ) {
+          if (!exampleValues.styleMap) exampleValues.styleMap = {};
           // The merged value is the example value that replaced the placeholder
-          exampleValues.set(propName, mergedStyleMap[key]);
+          exampleValues.styleMap[mapping.key] = mergedStyleMap[key];
         }
       }
     }
@@ -302,12 +411,15 @@ function findExampleValues(
     // Check data - find where placeholders were replaced with example values
     for (const [key, baseValue] of Object.entries(baseData)) {
       if (typeof baseValue === "string" && mergedData[key] !== undefined) {
-        const propName =
-          placeholderMap.get(baseValue) ||
-          getPropNameFromPlaceholder(baseValue, interfaceProps);
-        if (propName && !exampleValues.has(propName)) {
+        const mapping = placeholderMap.get(baseValue);
+        if (
+          mapping &&
+          mapping.type === "data" &&
+          !exampleValues.data?.[mapping.key]
+        ) {
+          if (!exampleValues.data) exampleValues.data = {};
           // The merged value is the example value that replaced the placeholder
-          exampleValues.set(propName, mergedData[key]);
+          exampleValues.data[mapping.key] = mergedData[key];
         }
       }
     }
@@ -449,10 +561,16 @@ function generateStories() {
     const componentName = toComponentName(file);
 
     // Get interface for this component
-    const interfaceProps = interfaces.get(componentName) || {};
+    const parsedInterface = interfaces.get(componentName) || {
+      styleMap: undefined,
+      data: undefined,
+      children: false,
+    };
     const placeholderMap =
-      Object.keys(interfaceProps).length > 0
-        ? createPlaceholderMap(interfaceProps)
+      (parsedInterface.styleMap &&
+        Object.keys(parsedInterface.styleMap).length > 0) ||
+      (parsedInterface.data && Object.keys(parsedInterface.data).length > 0)
+        ? createPlaceholderMap(parsedInterface)
         : new Map();
 
     // Merge example data into the JSON structure
@@ -463,18 +581,30 @@ function generateStories() {
       json,
       mergedJson,
       placeholderMap,
-      interfaceProps
+      parsedInterface
     );
 
-    // Build story args
-    const storyArgs: Record<string, any> = {};
+    // Build story args with nested structure
+    const storyArgs: {
+      styleMap?: Record<string, any>;
+      data?: Record<string, any>;
+    } = {};
 
     // If component has typed props, extract them from example values
-    if (Object.keys(interfaceProps).length > 0) {
-      for (const [propName, propType] of Object.entries(interfaceProps)) {
-        if (exampleValues.has(propName)) {
-          storyArgs[propName] = exampleValues.get(propName);
-        }
+    const hasInterface =
+      (parsedInterface.styleMap &&
+        Object.keys(parsedInterface.styleMap).length > 0) ||
+      (parsedInterface.data && Object.keys(parsedInterface.data).length > 0);
+
+    if (hasInterface) {
+      if (
+        exampleValues.styleMap &&
+        Object.keys(exampleValues.styleMap).length > 0
+      ) {
+        storyArgs.styleMap = exampleValues.styleMap;
+      }
+      if (exampleValues.data && Object.keys(exampleValues.data).length > 0) {
+        storyArgs.data = exampleValues.data;
       }
     }
 
@@ -491,12 +621,13 @@ function generateStories() {
     // Generate imports
     const reactImport = `import React from "react";`;
     const componentImport = `import { ${componentName} } from './${componentName}';`;
+    const cssImport = `import './${componentName}.css';`;
     const storybookImports = `import type { Meta, StoryObj } from "@storybook/react";`;
 
     // Generate component imports if needed for render function
     // Only add component imports if we're using a render function (not args)
     const needsRenderFunction =
-      !Object.keys(interfaceProps).length &&
+      !hasInterface &&
       rootAcceptsChildren &&
       mergedJson.children &&
       mergedJson.children.length > 0;
@@ -525,16 +656,22 @@ type Story = StoryObj<typeof ${componentName}>;`;
     // Generate story
     let storyContent = "";
 
-    if (Object.keys(interfaceProps).length > 0) {
+    if (hasInterface) {
       // Component has typed props - use props in story
-      const argsEntries = Object.entries(storyArgs)
-        .map(([key, value]) => `    ${key}: ${formatPropValue(value)},`)
-        .join("\n");
+      const argsEntries: string[] = [];
+      if (storyArgs.styleMap && Object.keys(storyArgs.styleMap).length > 0) {
+        argsEntries.push(
+          `    styleMap: ${formatPropValue(storyArgs.styleMap)},`
+        );
+      }
+      if (storyArgs.data && Object.keys(storyArgs.data).length > 0) {
+        argsEntries.push(`    data: ${formatPropValue(storyArgs.data)},`);
+      }
 
-      if (argsEntries) {
+      if (argsEntries.length > 0) {
         storyContent = `export const Default: Story = {
   args: {
-${argsEntries}
+${argsEntries.join("\n")}
   },
 };`;
       } else {
@@ -570,6 +707,7 @@ ${argsEntries}
     const storyFile = `${reactImport}
 ${storybookImports}
 ${componentImport}
+${cssImport}
 ${componentImports}
 ${meta}
 

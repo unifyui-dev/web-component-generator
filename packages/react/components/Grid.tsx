@@ -1,8 +1,5 @@
 import React from "react";
-import {
-  mapSchemaStyleToCss,
-  filterPointerEvents,
-} from "../generated/styleUtils";
+import { mapSchemaStyleToCss, filterPointerEvents } from "../../utils/styles";
 
 // Accepts all possible Grid properties as per schema.d.ts
 export interface GridProps {
@@ -172,9 +169,15 @@ export interface GridProps {
   };
   children?: React.ReactNode;
   data?: { [k: string]: any };
+  className?: string;
 }
 
-export const Grid: React.FC<GridProps> = ({ styleMap, children, ...rest }) => {
+export const Grid: React.FC<GridProps> = ({
+  styleMap,
+  children,
+  className,
+  ...rest
+}) => {
   // First filter pointerEvents, then map schema style to CSS
   const filteredStyle = filterPointerEvents(styleMap);
   const cssStyle = mapSchemaStyleToCss(filteredStyle);
@@ -186,7 +189,7 @@ export const Grid: React.FC<GridProps> = ({ styleMap, children, ...rest }) => {
   };
 
   return (
-    <div style={finalStyle} {...rest}>
+    <div className={className} style={finalStyle} {...rest}>
       {children}
     </div>
   );

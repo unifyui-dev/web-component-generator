@@ -1,6 +1,7 @@
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import { Breadcrumbs } from './Breadcrumbs';
+import './Breadcrumbs.css';
 
 const meta: Meta<typeof Breadcrumbs> = {
   title: "Generated/Breadcrumbs",
@@ -13,9 +14,13 @@ type Story = StoryObj<typeof Breadcrumbs>;
 
 export const Default: Story = {
   args: {
-    breadcrumb1: "Home",
-    breadcrumb2: "Products",
-    breadcrumb3: "Electronics",
-    breadcrumbLinkColor: "#0066cc",
+    styleMap: {
+  "--breadcrumb-link-color": "#0066cc"
+},
+    data: {
+  "breadcrumb1": "Home",
+  "breadcrumb2": "Products",
+  "breadcrumb3": "Electronics"
+},
   },
 };

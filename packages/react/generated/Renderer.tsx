@@ -1,25 +1,28 @@
-import React from "react";
-import { Breadcrumbs } from "./Breadcrumbs";
-import { Button } from "./Button";
-import { Card } from "./Card";
-import { HeroSection } from "./HeroSection";
-import { NavigationBar } from "./NavigationBar";
-import { Page } from "./Page";
+import React from 'react';
+import './style.css';
+import { Breadcrumbs } from './Breadcrumbs';
+import { Button } from './Button';
+import { Card } from './Card';
+import { HeroSection } from './HeroSection';
+import { NavigationBar } from './NavigationBar';
+import { Page } from './Page';
 
 // Component map for case-insensitive component lookup
 const componentMap: Record<string, React.ComponentType<any>> = {
-  breadcrumbs: Breadcrumbs,
-  button: Button,
-  card: Card,
-  herosection: HeroSection,
-  navigationbar: NavigationBar,
-  page: Page,
+  "breadcrumbs": Breadcrumbs,
+  "button": Button,
+  "card": Card,
+  "herosection": HeroSection,
+  "navigationbar": NavigationBar,
+  "page": Page,
 };
 
 // Type definition for component data structure
 export interface ComponentData {
   component: string;
+  styleMap?: Record<string, any>;
   data?: Record<string, any>;
+  children?: ComponentData[];
 }
 
 export interface RendererProps {
@@ -28,7 +31,7 @@ export interface RendererProps {
 
 // Recursive render function
 function renderComponent(item: ComponentData): React.ReactNode {
-  const { component, data = {} } = item;
+  const { component, styleMap, data, children: childrenData } = item;
 
   // Find component in map (case-insensitive)
   const Component = componentMap[component.toLowerCase()];
@@ -38,16 +41,22 @@ function renderComponent(item: ComponentData): React.ReactNode {
     return null;
   }
 
-  // Handle children if they exist in data
+  // Handle children if they exist
   let children: React.ReactNode = undefined;
-  if (data.children && Array.isArray(data.children)) {
-    children = data.children.map((child: ComponentData, index: number) => (
+  if (childrenData && Array.isArray(childrenData)) {
+    children = childrenData.map((child: ComponentData, index: number) => (
       <React.Fragment key={index}>{renderComponent(child)}</React.Fragment>
     ));
   }
 
-  // Create props object, excluding children if it exists
-  const { children: _, ...props } = data;
+  // Build props object with styleMap and data as separate properties
+  const props: any = {};
+  if (styleMap) {
+    props.styleMap = styleMap;
+  }
+  if (data) {
+    props.data = data;
+  }
 
   // If children exist, pass them as React children
   if (children) {

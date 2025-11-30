@@ -2,15 +2,20 @@ import React from 'react';
 import { Container } from '../components/Container';
 import { Image } from '../components/Image';
 import { Text } from '../components/Text';
+import './Card.css';
 interface Card {
-  cardButtonBgColor: string;
-  cardButtonText: string;
-  cardDescription: string;
-  cardImageSrc: string;
-  cardTitle: string;
+  styleMap: {
+    "--card-button-bg-color": string;
+  };
+  data: {
+    cardButtonText: string;
+    cardDescription: string;
+    cardImageSrc: string;
+    cardTitle: string;
+  };
   children?: React.ReactNode;
 }
 
 export const Card = (props: Card) => (
-  <Container styleMap={{ display: "flex", flexDirection: "column", backgroundColor: "#ffffff", borderRadius: 12, borderWidth: 1, borderColor: "#e0e0e0", overflow: "hidden", maxWidth: 400, shadowColor: "#000000", shadowOffsetX: 0, shadowOffsetY: 2, shadowRadius: 8, shadowOpacity: 0.1, elevation: 2 }}><Image styleMap={{ width: "100%", height: 200, objectFit: "cover" }} data={{ src: props.cardImageSrc }}></Image><Container styleMap={{ display: "flex", flexDirection: "column", padding: 20, gap: 12 }}><Text styleMap={{ fontSize: 24, fontWeight: "700", color: "#333333", marginBottom: 4 }} data={{ content: props.cardTitle }}>{props.cardTitle}</Text><Text styleMap={{ fontSize: 14, color: "#666666", lineHeight: 1.5 }} data={{ content: props.cardDescription }}>{props.cardDescription}</Text><Container styleMap={{ display: "flex", flexDirection: "row", justifyContent: "flex-end", marginTop: 8 }}><Container styleMap={{ display: "flex", flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: props.cardButtonBgColor, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 6, cursor: "pointer" }}><Text styleMap={{ color: "#ffffff", fontSize: 14, fontWeight: "600" }} data={{ content: props.cardButtonText }}>{props.cardButtonText}</Text></Container></Container></Container>{props.children}</Container>
+  <Container style={{ "--card-button-bg-color": props.styleMap?.["--card-button-bg-color"] }} className="card-root"><Image className="card-root-container-0" data={{ src: props.data?.cardImageSrc }}></Image><Container className="card-root-container-1"><Text className="card-root-container-1-container-0" data={{ content: props.data?.cardTitle }}>{props.data?.cardTitle}</Text><Text className="card-root-container-1-container-1" data={{ content: props.data?.cardDescription }}>{props.data?.cardDescription}</Text><Container className="card-root-container-1-container-2"><Container className="card-root-container-1-container-2-container-0"><Text className="card-root-container-1-container-2-container-0-container-0" data={{ content: props.data?.cardButtonText }}>{props.data?.cardButtonText}</Text></Container></Container></Container>{props.children}</Container>
 );

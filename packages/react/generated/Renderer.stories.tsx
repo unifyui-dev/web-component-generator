@@ -17,60 +17,68 @@ export const Default: Story = {
     data: [
     {
       component: "Breadcrumbs",
+      styleMap: {
+        "--breadcrumb-link-color": "#0066cc"
+      },
       data: {
         breadcrumb1: "Home",
         breadcrumb2: "Products",
-        breadcrumb3: "Electronics",
-        breadcrumbLinkColor: "#0066cc"
+        breadcrumb3: "Electronics"
       }
     },
     {
       component: "Button",
+      styleMap: {
+        "--button-bg-color": "#0066cc"
+      },
       data: {
-        buttonBgColor: "#0066cc",
         buttonContent: "Click Me"
       }
     },
     {
       component: "Card",
+      styleMap: {
+        "--card-button-bg-color": "#0066cc"
+      },
       data: {
-        cardButtonBgColor: "#0066cc",
-        cardButtonText: "Learn More",
-        cardDescription: "This is a description of the card content. It can contain multiple lines of text to describe the card in detail.",
         cardImageSrc: "https://placehold.co/400",
-        cardTitle: "Card Title"
+        cardTitle: "Card Title",
+        cardDescription: "This is a description of the card content. It can contain multiple lines of text to describe the card in detail.",
+        cardButtonText: "Learn More"
       }
     },
     {
       component: "HeroSection",
+      styleMap: {
+        "--hero-cta-bg-color": "#0066cc"
+      },
       data: {
-        heroCtaBgColor: "#0066cc",
-        heroCtaText: "Get Started",
-        heroHeading: "Welcome to Our Platform",
         heroImageSrc: "https://placehold.co/600x400/000000/FFFFFF/png",
-        heroSubheading: "Discover amazing features and transform your workflow"
+        heroHeading: "Welcome to Our Platform",
+        heroSubheading: "Discover amazing features and transform your workflow",
+        heroCtaText: "Get Started"
       }
     },
     {
       component: "NavigationBar",
+      styleMap: {
+        "--nav-logo-color": "#0066cc",
+        "--nav-item-1-color": "#333333",
+        "--nav-item-2-color": "#666666",
+        "--nav-item-3-color": "#666666",
+        "--nav-item-4-color": "#666666"
+      },
       data: {
-        navCtaText: "Sign In",
+        navLogoText: "Logo",
         navItem1: "Home",
-        navItem1Color: "#333333",
         navItem2: "About",
-        navItem2Color: "#666666",
         navItem3: "Products",
-        navItem3Color: "#666666",
         navItem4: "Contact",
-        navItem4Color: "#666666",
-        navLogoColor: "#0066cc",
-        navLogoText: "Logo"
+        navCtaText: "Sign In"
       }
     },
     {
-      component: "Page",
-      data: {
-      }
+      component: "Page"
     }
     ] as ComponentData[],
   },

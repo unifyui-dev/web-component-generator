@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["packages/react/**/*"]
+  "include": ["packages/react/**/*", "packages/utils"]
 }

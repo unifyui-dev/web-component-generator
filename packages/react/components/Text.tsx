@@ -1,8 +1,5 @@
 import React from "react";
-import {
-  mapSchemaStyleToCss,
-  filterPointerEvents,
-} from "../generated/styleUtils";
+import { mapSchemaStyleToCss, filterPointerEvents } from "../../utils/styles";
 
 // Accepts all possible Text properties as per schema.d.ts
 export interface TextProps {
@@ -175,12 +172,14 @@ export interface TextProps {
     content?: string;
     [k: string]: any;
   };
+  className?: string;
 }
 
 export const Text: React.FC<TextProps> = ({
   styleMap,
   children,
   data,
+  className,
   ...rest
 }) => {
   // First filter pointerEvents, then map schema style to CSS
@@ -191,7 +190,7 @@ export const Text: React.FC<TextProps> = ({
   const content = data?.content ?? children;
 
   return (
-    <span style={cssStyle} {...rest}>
+    <span className={className} style={cssStyle} {...rest}>
       {content}
     </span>
   );

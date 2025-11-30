@@ -22,32 +22,112 @@ function camelToKebab(str: string): string {
   return str.replace(/([A-Z])/g, "-$1").toLowerCase();
 }
 
+// Interface structure for parsed interfaces
+interface ParsedInterface {
+  styleMap?: Record<string, string>; // CSS variable names -> type
+  data?: Record<string, string>; // Data property names -> type
+  children?: boolean;
+}
+
+// Helper to find matching brace for interface body (handles nested braces)
+function findInterfaceBody(content: string, startIndex: number): string | null {
+  let i = startIndex;
+  // Find the opening brace
+  while (i < content.length && content[i] !== "{") i++;
+  if (i >= content.length) return null;
+
+  let braceCount = 0;
+  const start = i;
+  while (i < content.length) {
+    if (content[i] === "{") braceCount++;
+    if (content[i] === "}") {
+      braceCount--;
+      if (braceCount === 0) {
+        return content.substring(start + 1, i);
+      }
+    }
+    i++;
+  }
+  return null;
+}
+
+// Helper to extract nested object content (handles nested braces)
+function extractNestedObject(str: string, key: string): string | null {
+  const keyIndex = str.indexOf(key + ":");
+  if (keyIndex === -1) return null;
+
+  let start = keyIndex + key.length + 1;
+  // Skip whitespace
+  while (start < str.length && /\s/.test(str[start])) start++;
+
+  if (str[start] !== "{") return null;
+
+  let braceCount = 0;
+  let i = start;
+  while (i < str.length) {
+    if (str[i] === "{") braceCount++;
+    if (str[i] === "}") {
+      braceCount--;
+      if (braceCount === 0) {
+        return str.substring(start + 1, i);
+      }
+    }
+    i++;
+  }
+  return null;
+}
+
 // Helper to parse interface definitions from .d.ts file
-function parseInterfaces(
-  typesFile: string
-): Map<string, Record<string, string>> {
-  const interfaces = new Map<string, Record<string, string>>();
+function parseInterfaces(typesFile: string): Map<string, ParsedInterface> {
+  const interfaces = new Map<string, ParsedInterface>();
   if (!fs.existsSync(typesFile)) {
     return interfaces;
   }
 
   const content = fs.readFileSync(typesFile, "utf-8");
-  const interfaceRegex = /interface\s+(\w+)\s*\{([^}]+)\}/g;
+  const interfaceNameRegex = /interface\s+(\w+)\s*\{/g;
   let match;
 
-  while ((match = interfaceRegex.exec(content)) !== null) {
+  while ((match = interfaceNameRegex.exec(content)) !== null) {
     const interfaceName = match[1];
-    const body = match[2];
-    const props: Record<string, string> = {};
+    const bodyStart = match.index + match[0].length - 1; // Position of opening brace
+    const body = findInterfaceBody(content, bodyStart);
 
-    // Parse properties: propName: type;
-    const propRegex = /(\w+):\s*(\w+);/g;
-    let propMatch;
-    while ((propMatch = propRegex.exec(body)) !== null) {
-      props[propMatch[1]] = propMatch[2];
+    if (!body) continue;
+    const parsed: ParsedInterface = {};
+
+    // Check for nested styleMap object
+    const styleMapBody = extractNestedObject(body, "styleMap");
+    if (styleMapBody) {
+      parsed.styleMap = {};
+      // Parse CSS variable names: "--var-name": string;
+      const styleMapPropRegex = /"([^"]+)":\s*(\w+);/g;
+      let styleMapPropMatch;
+      while (
+        (styleMapPropMatch = styleMapPropRegex.exec(styleMapBody)) !== null
+      ) {
+        parsed.styleMap[styleMapPropMatch[1]] = styleMapPropMatch[2];
+      }
     }
 
-    interfaces.set(interfaceName, props);
+    // Check for nested data object
+    const dataBody = extractNestedObject(body, "data");
+    if (dataBody) {
+      parsed.data = {};
+      // Parse data properties: propName: type;
+      const dataPropRegex = /(\w+):\s*(\w+);/g;
+      let dataPropMatch;
+      while ((dataPropMatch = dataPropRegex.exec(dataBody)) !== null) {
+        parsed.data[dataPropMatch[1]] = dataPropMatch[2];
+      }
+    }
+
+    // Check for children property
+    if (body.includes("children:")) {
+      parsed.children = true;
+    }
+
+    interfaces.set(interfaceName, parsed);
   }
 
   return interfaces;
@@ -55,36 +135,69 @@ function parseInterfaces(
 
 // Helper to create placeholder to prop mapping
 function createPlaceholderMap(
-  interfaceProps: Record<string, string>
-): Map<string, string> {
-  const mapping = new Map<string, string>();
-  for (const [propName, propType] of Object.entries(interfaceProps)) {
-    // Map both camelCase and kebab-case versions
-    mapping.set(propName, propName);
-    mapping.set(camelToKebab(propName), propName);
+  parsedInterface: ParsedInterface
+): Map<string, { type: "styleMap" | "data"; key: string }> {
+  const mapping = new Map<string, { type: "styleMap" | "data"; key: string }>();
 
-    // Handle numbered properties: breadcrumb1 -> breadcrumb-1
-    const numberedMatch = propName.match(/^([a-zA-Z]+)(\d+)$/);
-    if (numberedMatch) {
-      const base = numberedMatch[1];
-      const number = numberedMatch[2];
-      mapping.set(`${base}-${number}`, propName);
+  // Map styleMap CSS variables
+  if (parsedInterface.styleMap) {
+    for (const [cssVar] of Object.entries(parsedInterface.styleMap)) {
+      // CSS variables are already in kebab-case format like "--button-bg-color"
+      // Extract the variable name without the "--" prefix
+      const varName = cssVar.replace(/^--/, "");
+      mapping.set(varName, { type: "styleMap", key: cssVar });
+      // Also map with the "--" prefix
+      mapping.set(cssVar, { type: "styleMap", key: cssVar });
     }
   }
+
+  // Map data properties
+  if (parsedInterface.data) {
+    for (const [propName] of Object.entries(parsedInterface.data)) {
+      // Map both camelCase and kebab-case versions
+      mapping.set(propName, { type: "data", key: propName });
+      mapping.set(camelToKebab(propName), { type: "data", key: propName });
+
+      // Handle numbered properties: breadcrumb1 -> breadcrumb-1
+      const numberedMatch = propName.match(/^([a-zA-Z]+)(\d+)$/);
+      if (numberedMatch) {
+        const base = numberedMatch[1];
+        const number = numberedMatch[2];
+        mapping.set(`${base}-${number}`, { type: "data", key: propName });
+      }
+    }
+  }
+
   return mapping;
 }
 
-// Helper to get prop name from a placeholder
-function getPropNameFromPlaceholder(
+// Helper to get prop info from a placeholder
+function getPropInfoFromPlaceholder(
   placeholder: string,
-  interfaceProps: Record<string, string>
-): string | null {
-  if (interfaceProps[placeholder]) {
-    return placeholder;
-  }
-  const camelCase = kebabToCamel(placeholder);
-  if (interfaceProps[camelCase]) {
-    return camelCase;
+  parsedInterface: ParsedInterface
+): { type: "styleMap" | "data"; key: string } | null {
+  // Check if it's a CSS variable (starts with --)
+  if (placeholder.startsWith("--")) {
+    if (parsedInterface.styleMap && parsedInterface.styleMap[placeholder]) {
+      return { type: "styleMap", key: placeholder };
+    }
+  } else {
+    // Check if it's a CSS variable without the -- prefix
+    const cssVar = `--${placeholder}`;
+    if (parsedInterface.styleMap && parsedInterface.styleMap[cssVar]) {
+      return { type: "styleMap", key: cssVar };
+    }
+
+    // Check data properties
+    if (parsedInterface.data) {
+      if (parsedInterface.data[placeholder]) {
+        return { type: "data", key: placeholder };
+      }
+      const camelCase = kebabToCamel(placeholder);
+      if (parsedInterface.data[camelCase]) {
+        return { type: "data", key: camelCase };
+      }
+    }
   }
   return null;
 }
@@ -128,10 +241,11 @@ function mergeExampleData(node: any): any {
 function findExampleValues(
   baseNode: any,
   mergedNode: any,
-  placeholderMap: Map<string, string>,
-  interfaceProps: Record<string, string>
-): Map<string, any> {
-  const exampleValues = new Map<string, any>();
+  placeholderMap: Map<string, { type: "styleMap" | "data"; key: string }>,
+  parsedInterface: ParsedInterface
+): { styleMap: Record<string, any>; data: Record<string, any> } {
+  const styleMapValues: Record<string, any> = {};
+  const dataValues: Record<string, any> = {};
 
   function traverse(base: any, merged: any) {
     if (
@@ -151,11 +265,13 @@ function findExampleValues(
     // Check styleMap - find where placeholders were replaced with example values
     for (const [key, baseValue] of Object.entries(baseStyleMap)) {
       if (typeof baseValue === "string" && mergedStyleMap[key] !== undefined) {
-        const propName =
+        const propInfo =
           placeholderMap.get(baseValue) ||
-          getPropNameFromPlaceholder(baseValue, interfaceProps);
-        if (propName && !exampleValues.has(propName)) {
-          exampleValues.set(propName, mergedStyleMap[key]);
+          getPropInfoFromPlaceholder(baseValue, parsedInterface);
+        if (propInfo && propInfo.type === "styleMap") {
+          if (!styleMapValues[propInfo.key]) {
+            styleMapValues[propInfo.key] = mergedStyleMap[key];
+          }
         }
       }
     }
@@ -163,11 +279,13 @@ function findExampleValues(
     // Check data - find where placeholders were replaced with example values
     for (const [key, baseValue] of Object.entries(baseData)) {
       if (typeof baseValue === "string" && mergedData[key] !== undefined) {
-        const propName =
+        const propInfo =
           placeholderMap.get(baseValue) ||
-          getPropNameFromPlaceholder(baseValue, interfaceProps);
-        if (propName && !exampleValues.has(propName)) {
-          exampleValues.set(propName, mergedData[key]);
+          getPropInfoFromPlaceholder(baseValue, parsedInterface);
+        if (propInfo && propInfo.type === "data") {
+          if (!dataValues[propInfo.key]) {
+            dataValues[propInfo.key] = mergedData[key];
+          }
         }
       }
     }
@@ -196,7 +314,7 @@ function findExampleValues(
   }
 
   traverse(baseNode, mergedNode);
-  return exampleValues;
+  return { styleMap: styleMapValues, data: dataValues };
 }
 
 // Helper to create a valid React component name from filename
@@ -245,7 +363,7 @@ function getAllComponentNames(): Set<string> {
 function extractChildrenComponents(
   children: any[],
   allComponentNames: Set<string>,
-  interfaces: Map<string, Record<string, string>>,
+  interfaces: Map<string, ParsedInterface>,
   componentDataCache: Map<string, any>
 ): any[] {
   if (!Array.isArray(children) || children.length === 0) {
@@ -298,7 +416,7 @@ function extractComponentDataFromNode(
   node: any,
   componentName: string,
   allComponentNames: Set<string>,
-  interfaces: Map<string, Record<string, string>>,
+  interfaces: Map<string, ParsedInterface>,
   componentDataCache: Map<string, any>
 ): any | null {
   if (!node || typeof node !== "object") {
@@ -306,10 +424,12 @@ function extractComponentDataFromNode(
   }
 
   // Get interface for this component
-  const interfaceProps = interfaces.get(componentName) || {};
+  const parsedInterface = interfaces.get(componentName) || {};
   const placeholderMap =
-    Object.keys(interfaceProps).length > 0
-      ? createPlaceholderMap(interfaceProps)
+    (parsedInterface.styleMap &&
+      Object.keys(parsedInterface.styleMap).length > 0) ||
+    (parsedInterface.data && Object.keys(parsedInterface.data).length > 0)
+      ? createPlaceholderMap(parsedInterface)
       : new Map();
 
   // Merge example data into the JSON structure
@@ -320,23 +440,26 @@ function extractComponentDataFromNode(
     node,
     mergedNode,
     placeholderMap,
-    interfaceProps
+    parsedInterface
   );
 
-  // Build prop values object
-  const propValues: Record<string, any> = {};
+  // Build result object with separate styleMap and data
+  const result: any = {
+    component: componentName,
+  };
 
-  // Extract prop values from example values
-  if (Object.keys(interfaceProps).length > 0) {
-    for (const [propName, propType] of Object.entries(interfaceProps)) {
-      if (exampleValues.has(propName)) {
-        propValues[propName] = exampleValues.get(propName);
-      }
-    }
+  // Add styleMap if it has values
+  if (Object.keys(exampleValues.styleMap).length > 0) {
+    result.styleMap = exampleValues.styleMap;
+  }
+
+  // Add data if it has values
+  if (Object.keys(exampleValues.data).length > 0) {
+    result.data = exampleValues.data;
   }
 
   // Check if component has children in the example
-  const hasChildren = interfaceProps.children !== undefined;
+  const hasChildren = parsedInterface.children !== undefined;
   let childrenComponents: any[] = [];
 
   if (
@@ -352,13 +475,8 @@ function extractComponentDataFromNode(
     );
   }
 
-  const result: any = {
-    component: componentName,
-    data: { ...propValues },
-  };
-
   if (childrenComponents.length > 0) {
-    result.data.children = childrenComponents;
+    result.children = childrenComponents;
   }
 
   return result;
@@ -371,38 +489,52 @@ function formatComponentDataString(
 ): string {
   const indentStr = " ".repeat(indent);
   const nextIndent = " ".repeat(indent + 2);
-  const dataIndent = " ".repeat(indent + 4);
+  const propIndent = " ".repeat(indent + 4);
 
   let result = `${indentStr}{\n${nextIndent}component: ${formatValue(
     componentData.component
-  )},\n${nextIndent}data: {`;
+  )}`;
 
-  // Format data properties
-  const dataEntries = Object.entries(componentData.data || {})
-    .filter(([key]) => key !== "children")
-    .map(([key, value]) => `${dataIndent}${key}: ${formatValue(value)}`)
-    .join(",\n");
-
-  if (dataEntries) {
-    result += `\n${dataEntries}`;
+  // Format styleMap if it exists
+  if (
+    componentData.styleMap &&
+    Object.keys(componentData.styleMap).length > 0
+  ) {
+    result += `,\n${nextIndent}styleMap: {`;
+    const styleMapEntries = Object.entries(componentData.styleMap)
+      .map(
+        ([key, value]) =>
+          `${propIndent}${formatValue(key)}: ${formatValue(value)}`
+      )
+      .join(",\n");
+    if (styleMapEntries) {
+      result += `\n${styleMapEntries}`;
+    }
+    result += `\n${nextIndent}}`;
   }
 
-  // Format children if they exist
-  if (
-    componentData.data?.children &&
-    Array.isArray(componentData.data.children)
-  ) {
+  // Format data if it exists
+  if (componentData.data && Object.keys(componentData.data).length > 0) {
+    result += `,\n${nextIndent}data: {`;
+    const dataEntries = Object.entries(componentData.data)
+      .map(([key, value]) => `${propIndent}${key}: ${formatValue(value)}`)
+      .join(",\n");
     if (dataEntries) {
-      result += ",";
+      result += `\n${dataEntries}`;
     }
-    result += `\n${dataIndent}children: [\n`;
-    result += componentData.data.children
+    result += `\n${nextIndent}}`;
+  }
+
+  // Format children if they exist (as top-level property, not in data)
+  if (componentData.children && Array.isArray(componentData.children)) {
+    result += `,\n${nextIndent}children: [\n`;
+    result += componentData.children
       .map((child: any) => formatComponentDataString(child, indent + 6))
       .join(",\n");
-    result += `\n${dataIndent}]`;
+    result += `\n${nextIndent}]`;
   }
 
-  result += `\n${nextIndent}}\n${indentStr}}`;
+  result += `\n${indentStr}}`;
   return result;
 }
 

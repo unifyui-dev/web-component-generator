@@ -1,14 +1,19 @@
 import React from 'react';
 import { Container } from '../components/Container';
 import { Text } from '../components/Text';
+import './Breadcrumbs.css';
 interface Breadcrumbs {
-  breadcrumb1: string;
-  breadcrumb2: string;
-  breadcrumb3: string;
-  breadcrumbLinkColor: string;
+  styleMap: {
+    "--breadcrumb-link-color": string;
+  };
+  data: {
+    breadcrumb1: string;
+    breadcrumb2: string;
+    breadcrumb3: string;
+  };
   children?: React.ReactNode;
 }
 
 export const Breadcrumbs = (props: Breadcrumbs) => (
-  <Container styleMap={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 8, padding: 16 }}><Text styleMap={{ color: props.breadcrumbLinkColor, fontSize: 14, textDecoration: "underline", cursor: "pointer" }} data={{ content: props.breadcrumb1 }}>{props.breadcrumb1}</Text><Text styleMap={{ color: "#666666", fontSize: 14 }} data={{ content: "/" }}>/</Text><Text styleMap={{ color: props.breadcrumbLinkColor, fontSize: 14, textDecoration: "underline", cursor: "pointer" }} data={{ content: props.breadcrumb2 }}>{props.breadcrumb2}</Text><Text styleMap={{ color: "#666666", fontSize: 14 }} data={{ content: "/" }}>/</Text><Text styleMap={{ color: "#333333", fontSize: 14, fontWeight: "500" }} data={{ content: props.breadcrumb3 }}>{props.breadcrumb3}</Text>{props.children}</Container>
+  <Container style={{ "--breadcrumb-link-color": props.styleMap?.["--breadcrumb-link-color"] }} className="breadcrumbs-root"><Text className="breadcrumbs-root-container-0" data={{ content: props.data?.breadcrumb1 }}>{props.data?.breadcrumb1}</Text><Text className="breadcrumbs-root-container-1" data={{ content: "/" }}>/</Text><Text className="breadcrumbs-root-container-2" data={{ content: props.data?.breadcrumb2 }}>{props.data?.breadcrumb2}</Text><Text className="breadcrumbs-root-container-3" data={{ content: "/" }}>/</Text><Text className="breadcrumbs-root-container-4" data={{ content: props.data?.breadcrumb3 }}>{props.data?.breadcrumb3}</Text>{props.children}</Container>
 );

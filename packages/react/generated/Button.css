@@ -1,0 +1,22 @@
+.button-root {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--button-bg-color);
+  padding-left: 24px;
+  padding-right: 24px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  min-width: 120px;
+  min-height: 44px;
+}
+
+.button-root-container-0 {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+}

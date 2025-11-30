@@ -1,21 +1,26 @@
 import React from 'react';
 import { Container } from '../components/Container';
 import { Text } from '../components/Text';
+import './NavigationBar.css';
 interface NavigationBar {
-  navCtaText: string;
-  navItem1: string;
-  navItem1Color: string;
-  navItem2: string;
-  navItem2Color: string;
-  navItem3: string;
-  navItem3Color: string;
-  navItem4: string;
-  navItem4Color: string;
-  navLogoColor: string;
-  navLogoText: string;
+  styleMap: {
+    "--nav-item-1-color": string;
+    "--nav-item-2-color": string;
+    "--nav-item-3-color": string;
+    "--nav-item-4-color": string;
+    "--nav-logo-color": string;
+  };
+  data: {
+    navCtaText: string;
+    navItem1: string;
+    navItem2: string;
+    navItem3: string;
+    navItem4: string;
+    navLogoText: string;
+  };
   children?: React.ReactNode;
 }
 
 export const NavigationBar = (props: NavigationBar) => (
-  <Container styleMap={{ display: "flex", flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#ffffff", paddingHorizontal: 24, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#e0e0e0", position: "fixed", top: 0, left: 0, right: 0, zIndex: 100 }}><Container styleMap={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 8 }}><Text styleMap={{ fontSize: 24, fontWeight: "700", color: props.navLogoColor }} data={{ content: props.navLogoText }}>{props.navLogoText}</Text></Container><Container styleMap={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 32 }}><Text styleMap={{ fontSize: 16, color: props.navItem1Color, cursor: "pointer", fontWeight: "500" }} data={{ content: props.navItem1 }}>{props.navItem1}</Text><Text styleMap={{ fontSize: 16, color: props.navItem2Color, cursor: "pointer" }} data={{ content: props.navItem2 }}>{props.navItem2}</Text><Text styleMap={{ fontSize: 16, color: props.navItem3Color, cursor: "pointer" }} data={{ content: props.navItem3 }}>{props.navItem3}</Text><Text styleMap={{ fontSize: 16, color: props.navItem4Color, cursor: "pointer" }} data={{ content: props.navItem4 }}>{props.navItem4}</Text></Container><Container styleMap={{ display: "flex", flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#0066cc", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 6, cursor: "pointer" }}><Text styleMap={{ color: "#ffffff", fontSize: 14, fontWeight: "600" }} data={{ content: props.navCtaText }}>{props.navCtaText}</Text></Container>{props.children}</Container>
+  <Container style={{ "--nav-item-1-color": props.styleMap?.["--nav-item-1-color"], "--nav-item-2-color": props.styleMap?.["--nav-item-2-color"], "--nav-item-3-color": props.styleMap?.["--nav-item-3-color"], "--nav-item-4-color": props.styleMap?.["--nav-item-4-color"], "--nav-logo-color": props.styleMap?.["--nav-logo-color"] }} className="navigationbar-root"><Container className="navigationbar-root-container-0"><Text className="navigationbar-root-container-0-container-0" data={{ content: props.data?.navLogoText }}>{props.data?.navLogoText}</Text></Container><Container className="navigationbar-root-container-1"><Text className="navigationbar-root-container-1-container-0" data={{ content: "nav-item-1" }}>nav-item-1</Text><Text className="navigationbar-root-container-1-container-1" data={{ content: "nav-item-2" }}>nav-item-2</Text><Text className="navigationbar-root-container-1-container-2" data={{ content: "nav-item-3" }}>nav-item-3</Text><Text className="navigationbar-root-container-1-container-3" data={{ content: "nav-item-4" }}>nav-item-4</Text></Container><Container className="navigationbar-root-container-2"><Text className="navigationbar-root-container-2-container-0" data={{ content: props.data?.navCtaText }}>{props.data?.navCtaText}</Text></Container>{props.children}</Container>
 );

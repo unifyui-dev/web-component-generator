@@ -1,8 +1,5 @@
 import React from "react";
-import {
-  mapSchemaStyleToCss,
-  filterPointerEvents,
-} from "../generated/styleUtils";
+import { mapSchemaStyleToCss, filterPointerEvents } from "../../utils/styles";
 
 // Accepts all possible Container properties as per schema.d.ts
 export interface ContainerProps {
@@ -172,18 +169,20 @@ export interface ContainerProps {
   };
   children?: React.ReactNode;
   data?: { [k: string]: any };
+  className?: string;
 }
 
 export const Container: React.FC<ContainerProps> = ({
   styleMap,
   children,
+  className,
   ...rest
 }) => {
   // First filter pointerEvents, then map schema style to CSS
   const filteredStyle = filterPointerEvents(styleMap);
   const cssStyle = mapSchemaStyleToCss(filteredStyle);
   return (
-    <div style={cssStyle} {...rest}>
+    <div className={className} style={cssStyle} {...rest}>
       {children}
     </div>
   );

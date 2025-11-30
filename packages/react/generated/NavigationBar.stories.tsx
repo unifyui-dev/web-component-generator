@@ -1,6 +1,7 @@
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import { NavigationBar } from './NavigationBar';
+import './NavigationBar.css';
 
 const meta: Meta<typeof NavigationBar> = {
   title: "Generated/NavigationBar",
@@ -13,16 +14,16 @@ type Story = StoryObj<typeof NavigationBar>;
 
 export const Default: Story = {
   args: {
-    navCtaText: "Sign In",
-    navItem1: "Home",
-    navItem1Color: "#333333",
-    navItem2: "About",
-    navItem2Color: "#666666",
-    navItem3: "Products",
-    navItem3Color: "#666666",
-    navItem4: "Contact",
-    navItem4Color: "#666666",
-    navLogoColor: "#0066cc",
-    navLogoText: "Logo",
+    styleMap: {
+  "--nav-logo-color": "#0066cc",
+  "--nav-item-1-color": "#333333",
+  "--nav-item-2-color": "#666666",
+  "--nav-item-3-color": "#666666",
+  "--nav-item-4-color": "#666666"
+},
+    data: {
+  "navLogoText": "Logo",
+  "navCtaText": "Sign In"
+},
   },
 };

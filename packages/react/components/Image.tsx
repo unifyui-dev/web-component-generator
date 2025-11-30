@@ -1,8 +1,5 @@
 import React from "react";
-import {
-  mapSchemaStyleToCss,
-  filterPointerEvents,
-} from "../generated/styleUtils";
+import { mapSchemaStyleToCss, filterPointerEvents } from "../../utils/styles";
 
 // Accepts all possible Image properties as per schema.d.ts
 export interface ImageProps {
@@ -175,9 +172,15 @@ export interface ImageProps {
     src?: string;
     [k: string]: any;
   };
+  className?: string;
 }
 
-export const Image: React.FC<ImageProps> = ({ styleMap, data, ...rest }) => {
+export const Image: React.FC<ImageProps> = ({
+  styleMap,
+  data,
+  className,
+  ...rest
+}) => {
   // First filter pointerEvents, then map schema style to CSS
   const filteredStyle = filterPointerEvents(styleMap);
   const cssStyle = mapSchemaStyleToCss(filteredStyle);
@@ -185,5 +188,5 @@ export const Image: React.FC<ImageProps> = ({ styleMap, data, ...rest }) => {
   // Get image source from data.src
   const src = data?.src;
 
-  return <img src={src} style={cssStyle} {...rest} />;
+  return <img src={src} className={className} style={cssStyle} {...rest} />;
 };

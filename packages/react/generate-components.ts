@@ -28,75 +28,164 @@ function camelToKebab(str: string): string {
   return str.replace(/([A-Z])/g, "-$1").toLowerCase();
 }
 
+// Interface structure for parsed interfaces
+interface ParsedInterface {
+  styleMap?: Record<string, string>; // CSS variable names -> type
+  data?: Record<string, string>; // Data property names -> type
+  children?: boolean;
+}
+
 // Helper to parse interface definitions from .d.ts file
-function parseInterfaces(
-  typesFile: string
-): Map<string, Record<string, string>> {
-  const interfaces = new Map<string, Record<string, string>>();
+function parseInterfaces(typesFile: string): Map<string, ParsedInterface> {
+  const interfaces = new Map<string, ParsedInterface>();
   if (!fs.existsSync(typesFile)) {
     return interfaces;
   }
 
   const content = fs.readFileSync(typesFile, "utf-8");
-  const interfaceRegex = /interface\s+(\w+)\s*\{([^}]+)\}/g;
+
+  // Helper to find matching brace for interface body (handles nested braces)
+  function findInterfaceBody(
+    content: string,
+    startIndex: number
+  ): string | null {
+    let i = startIndex;
+    // Find the opening brace
+    while (i < content.length && content[i] !== "{") i++;
+    if (i >= content.length) return null;
+
+    let braceCount = 0;
+    const start = i;
+    while (i < content.length) {
+      if (content[i] === "{") braceCount++;
+      if (content[i] === "}") {
+        braceCount--;
+        if (braceCount === 0) {
+          return content.substring(start + 1, i);
+        }
+      }
+      i++;
+    }
+    return null;
+  }
+
+  // Helper to extract nested object content (handles nested braces)
+  function extractNestedObject(str: string, key: string): string | null {
+    const keyIndex = str.indexOf(key + ":");
+    if (keyIndex === -1) return null;
+
+    let start = keyIndex + key.length + 1;
+    // Skip whitespace
+    while (start < str.length && /\s/.test(str[start])) start++;
+
+    if (str[start] !== "{") return null;
+
+    let braceCount = 0;
+    let i = start;
+    while (i < str.length) {
+      if (str[i] === "{") braceCount++;
+      if (str[i] === "}") {
+        braceCount--;
+        if (braceCount === 0) {
+          return str.substring(start + 1, i);
+        }
+      }
+      i++;
+    }
+    return null;
+  }
+
+  // Match interface declarations
+  const interfaceNameRegex = /interface\s+(\w+)\s*\{/g;
   let match;
 
-  while ((match = interfaceRegex.exec(content)) !== null) {
+  while ((match = interfaceNameRegex.exec(content)) !== null) {
     const interfaceName = match[1];
-    const body = match[2];
-    const props: Record<string, string> = {};
+    const bodyStart = match.index + match[0].length - 1; // Position of opening brace
+    const body = findInterfaceBody(content, bodyStart);
 
-    // Parse properties: propName: type;
-    const propRegex = /(\w+):\s*(\w+);/g;
-    let propMatch;
-    while ((propMatch = propRegex.exec(body)) !== null) {
-      props[propMatch[1]] = propMatch[2];
+    if (!body) continue;
+    const parsed: ParsedInterface = {};
+
+    // Check for nested styleMap object
+    const styleMapBody = extractNestedObject(body, "styleMap");
+    if (styleMapBody) {
+      parsed.styleMap = {};
+      // Parse CSS variable names: "--var-name": string;
+      const styleMapPropRegex = /"([^"]+)":\s*(\w+);/g;
+      let styleMapPropMatch;
+      while (
+        (styleMapPropMatch = styleMapPropRegex.exec(styleMapBody)) !== null
+      ) {
+        parsed.styleMap[styleMapPropMatch[1]] = styleMapPropMatch[2];
+      }
     }
 
-    interfaces.set(interfaceName, props);
+    // Check for nested data object
+    const dataBody = extractNestedObject(body, "data");
+    if (dataBody) {
+      parsed.data = {};
+      // Parse data properties: propName: type;
+      const dataPropRegex = /(\w+):\s*(\w+);/g;
+      let dataPropMatch;
+      while ((dataPropMatch = dataPropRegex.exec(dataBody)) !== null) {
+        parsed.data[dataPropMatch[1]] = dataPropMatch[2];
+      }
+    }
+
+    // Check for children property
+    if (body.includes("children:")) {
+      parsed.children = true;
+    }
+
+    interfaces.set(interfaceName, parsed);
   }
 
   return interfaces;
 }
 
-// Helper to get prop name from a placeholder (handles various formats)
-function getPropNameFromPlaceholder(
-  placeholder: string,
-  interfaceProps: Record<string, string>
-): string | null {
-  // Direct match
-  if (interfaceProps[placeholder]) {
-    return placeholder;
-  }
-
-  // Convert kebab-case to camelCase and check
-  const camelCase = kebabToCamel(placeholder);
-  if (interfaceProps[camelCase]) {
-    return camelCase;
-  }
-
-  return null;
-}
-
-// Helper to create placeholder to prop mapping
+// Helper to create placeholder to prop mapping for CSS variables and data
 function createPlaceholderMap(
-  interfaceProps: Record<string, string>
-): Map<string, string> {
-  const mapping = new Map<string, string>();
-  for (const [propName, propType] of Object.entries(interfaceProps)) {
-    // Map both camelCase and kebab-case versions
-    mapping.set(propName, propName);
-    mapping.set(camelToKebab(propName), propName);
+  parsedInterface: ParsedInterface
+): Map<string, { type: "styleMap" | "data"; key: string }> {
+  const mapping = new Map<string, { type: "styleMap" | "data"; key: string }>();
 
-    // Handle numbered properties: breadcrumb1 -> breadcrumb-1
-    // Match pattern: word followed by number (e.g., breadcrumb1, navItem1)
-    const numberedMatch = propName.match(/^([a-zA-Z]+)(\d+)$/);
-    if (numberedMatch) {
-      const base = numberedMatch[1];
-      const number = numberedMatch[2];
-      mapping.set(`${base}-${number}`, propName);
+  // Map CSS variables from styleMap
+  // The interface has CSS variable names like "--button-bg-color"
+  // But JSON placeholders might be like "button-bg-color" (without --)
+  if (parsedInterface.styleMap) {
+    for (const cssVar of Object.keys(parsedInterface.styleMap)) {
+      // Map the CSS variable name (e.g., "--button-bg-color")
+      mapping.set(cssVar, { type: "styleMap", key: cssVar });
+      // Map without the -- prefix (e.g., "button-bg-color" -> "--button-bg-color")
+      const withoutPrefix = cssVar.replace(/^--/, "");
+      if (withoutPrefix !== cssVar) {
+        mapping.set(withoutPrefix, { type: "styleMap", key: cssVar });
+        // Also map camelCase version if applicable (e.g., "buttonBgColor")
+        const camelCase = kebabToCamel(withoutPrefix);
+        if (camelCase !== withoutPrefix) {
+          mapping.set(camelCase, { type: "styleMap", key: cssVar });
+        }
+      }
     }
   }
+
+  // Map data properties
+  if (parsedInterface.data) {
+    for (const dataProp of Object.keys(parsedInterface.data)) {
+      mapping.set(dataProp, { type: "data", key: dataProp });
+      mapping.set(camelToKebab(dataProp), { type: "data", key: dataProp });
+
+      // Handle numbered properties: breadcrumb1 -> breadcrumb-1
+      const numberedMatch = dataProp.match(/^([a-zA-Z]+)(\d+)$/);
+      if (numberedMatch) {
+        const base = numberedMatch[1];
+        const number = numberedMatch[2];
+        mapping.set(`${base}-${number}`, { type: "data", key: dataProp });
+      }
+    }
+  }
+
   return mapping;
 }
 
@@ -104,13 +193,32 @@ function createPlaceholderMap(
 // Returns a special marker object for prop references
 function replacePlaceholders(
   value: any,
-  placeholderMap: Map<string, string>
+  placeholderMap: Map<string, { type: "styleMap" | "data"; key: string }>
 ): any {
   if (typeof value === "string") {
     // Check if this string is a placeholder
     if (placeholderMap.has(value)) {
+      const mapping = placeholderMap.get(value)!;
       // Return a special marker object
-      return { __isPropRef: true, propName: placeholderMap.get(value)! };
+      return {
+        __isPropRef: true,
+        type: mapping.type,
+        key: mapping.key,
+      };
+    }
+    // Check if it's a CSS variable reference (var(--variable-name))
+    const cssVarMatch = value.match(/^var\(--([^)]+)\)$/);
+    if (cssVarMatch) {
+      const varName = `--${cssVarMatch[1]}`;
+      if (placeholderMap.has(varName)) {
+        const mapping = placeholderMap.get(varName)!;
+        return {
+          __isPropRef: true,
+          type: mapping.type,
+          key: mapping.key,
+          isCssVar: true,
+        };
+      }
     }
     return value;
   }
@@ -130,38 +238,241 @@ function replacePlaceholders(
 // Helper to check if a value is a prop reference marker
 function isPropRef(
   value: any
-): value is { __isPropRef: true; propName: string } {
+): value is { __isPropRef: true; type: "styleMap" | "data"; key: string } {
   return value && typeof value === "object" && value.__isPropRef === true;
 }
 
 // Helper to convert styleMap to inline style string
+// This handles both regular style values and CSS variable references
 function styleMapToJs(
   styleMap: any,
-  placeholderMap: Map<string, string>,
-  interfaceProps: Record<string, string>
+  placeholderMap: Map<string, { type: "styleMap" | "data"; key: string }>
 ): string {
   if (!styleMap || typeof styleMap !== "object") return "";
   // Convert camelCase or kebab-case keys to camelCase for React
   const entries = Object.entries(styleMap).map(([k, v]) => {
     // If key is kebab-case, convert to camelCase
     const key = kebabToCamel(k);
-    // Check if value is a placeholder string
+
+    // If value is a prop reference marker (CSS variable or data)
+    if (isPropRef(v)) {
+      if ((v as any).isCssVar && v.type === "styleMap") {
+        // This is a CSS variable reference - keep it as var(--variable-name)
+        return `${key}: "var(${v.key})"`;
+      }
+      // For data references in styleMap (shouldn't happen often, but handle it)
+      if (v.type === "data") {
+        return `${key}: props.data?.${v.key}`;
+      }
+    }
+
+    // Check if value is a string that might be a CSS variable reference
     if (typeof v === "string") {
-      let propName = placeholderMap.get(v);
-      if (!propName) {
-        propName = getPropNameFromPlaceholder(v, interfaceProps);
+      // Check if it's already a var() reference
+      if (v.startsWith("var(")) {
+        return `${key}: "${v}"`;
       }
-      if (propName) {
-        return `${key}: props.${propName}`;
+      // Check if it's a placeholder
+      if (placeholderMap.has(v)) {
+        const mapping = placeholderMap.get(v)!;
+        if (mapping.type === "styleMap") {
+          // This should be a CSS variable reference
+          return `${key}: "var(${mapping.key})"`;
+        }
       }
     }
-    // If value is a prop reference marker, use props.xxx
-    if (v && typeof v === "object" && v.__isPropRef === true && v.propName) {
-      return `${key}: props.${v.propName}`;
-    }
+
     return `${key}: ${JSON.stringify(v)}`;
   });
   return `{ ${entries.join(", ")} }`;
+}
+
+// Helper to convert styleMap key to CSS property name
+function styleKeyToCssProperty(key: string): string {
+  // Convert camelCase to kebab-case
+  return camelToKebab(key);
+}
+
+// Helper to convert styleMap value to CSS value
+function styleValueToCssValue(
+  value: any,
+  key: string,
+  placeholderMap: Map<string, { type: "styleMap" | "data"; key: string }>
+): string {
+  if (typeof value === "string") {
+    // Check if it's already a var() reference
+    if (value.startsWith("var(")) {
+      return value;
+    }
+    // Check if it's a placeholder that maps to a CSS variable
+    if (placeholderMap.has(value)) {
+      const mapping = placeholderMap.get(value)!;
+      if (mapping.type === "styleMap") {
+        return `var(${mapping.key})`;
+      }
+    }
+    // Return as-is (might be a color, etc.)
+    return value;
+  }
+  if (typeof value === "number") {
+    // Unitless properties
+    const unitlessProps = [
+      "opacity",
+      "zIndex",
+      "fontWeight",
+      "lineHeight", // Can be unitless or have units
+      "flex",
+      "flexGrow",
+      "flexShrink",
+      "order",
+    ];
+    const cssKey = styleKeyToCssProperty(key);
+    if (unitlessProps.includes(cssKey) || unitlessProps.includes(key)) {
+      return String(value);
+    }
+    // Add px for most numeric values
+    return `${value}px`;
+  }
+  return String(value);
+}
+
+// Helper to convert styleMap to CSS properties string
+function styleMapToCss(
+  styleMap: any,
+  placeholderMap: Map<string, { type: "styleMap" | "data"; key: string }>
+): string {
+  if (!styleMap || typeof styleMap !== "object") return "";
+
+  const cssProps: string[] = [];
+
+  for (const [key, value] of Object.entries(styleMap)) {
+    const cssKey = styleKeyToCssProperty(key);
+    let cssValue: string;
+
+    // Handle special cases
+    if (key === "marginHorizontal") {
+      cssProps.push(
+        `  margin-left: ${styleValueToCssValue(value, key, placeholderMap)};`
+      );
+      cssProps.push(
+        `  margin-right: ${styleValueToCssValue(value, key, placeholderMap)};`
+      );
+      continue;
+    }
+    if (key === "marginVertical") {
+      cssProps.push(
+        `  margin-top: ${styleValueToCssValue(value, key, placeholderMap)};`
+      );
+      cssProps.push(
+        `  margin-bottom: ${styleValueToCssValue(value, key, placeholderMap)};`
+      );
+      continue;
+    }
+    if (key === "paddingHorizontal") {
+      cssProps.push(
+        `  padding-left: ${styleValueToCssValue(value, key, placeholderMap)};`
+      );
+      cssProps.push(
+        `  padding-right: ${styleValueToCssValue(value, key, placeholderMap)};`
+      );
+      continue;
+    }
+    if (key === "paddingVertical") {
+      cssProps.push(
+        `  padding-top: ${styleValueToCssValue(value, key, placeholderMap)};`
+      );
+      cssProps.push(
+        `  padding-bottom: ${styleValueToCssValue(value, key, placeholderMap)};`
+      );
+      continue;
+    }
+
+    // Skip non-CSS properties
+    if (
+      [
+        "shadowOffset",
+        "shadowOffsetX",
+        "shadowOffsetY",
+        "shadowColor",
+        "shadowOpacity",
+        "shadowRadius",
+        "elevation",
+        "numberOfLines",
+      ].includes(key)
+    ) {
+      // These are handled specially or ignored
+      continue;
+    }
+
+    cssValue = styleValueToCssValue(value, key, placeholderMap);
+    cssProps.push(`  ${cssKey}: ${cssValue};`);
+  }
+
+  return cssProps.join("\n");
+}
+
+// Helper to generate CSS file content for a component
+function generateCssFile(
+  componentName: string,
+  json: any,
+  parsedInterface: ParsedInterface,
+  placeholderMap: Map<string, { type: "styleMap" | "data"; key: string }>
+): { css: string; classNames: Map<any, string> } {
+  const cssRules: string[] = [];
+  const classNames = new Map<any, string>();
+  let classCounter = 0;
+
+  // Generate unique class name for a node
+  function getClassName(node: any, prefix: string = ""): string {
+    if (classNames.has(node)) {
+      return classNames.get(node)!;
+    }
+    const className =
+      prefix || `${componentName.toLowerCase()}-${classCounter++}`;
+    classNames.set(node, className);
+    return className;
+  }
+
+  // Traverse JSON tree and generate CSS classes
+  function generateCssForNode(node: any, prefix: string = "") {
+    if (!node || typeof node !== "object") return;
+
+    const { type, styleMap, children } = node;
+    if (!type) return;
+
+    const className = getClassName(node, prefix);
+    const cssClass = `.${className}`;
+
+    if (styleMap && typeof styleMap === "object") {
+      const cssProps = styleMapToCss(styleMap, placeholderMap);
+      if (cssProps) {
+        cssRules.push(`${cssClass} {`);
+        cssRules.push(cssProps);
+        cssRules.push(`}`);
+        cssRules.push(""); // Empty line between classes
+      }
+    }
+
+    // Process children
+    if (Array.isArray(children)) {
+      children.forEach((child, index) => {
+        generateCssForNode(
+          child,
+          `${className}-${type.toLowerCase()}-${index}`
+        );
+      });
+    } else if (children) {
+      generateCssForNode(children, `${className}-${type.toLowerCase()}`);
+    }
+  }
+
+  // Start with root node
+  generateCssForNode(json, `${componentName.toLowerCase()}-root`);
+
+  return {
+    css: cssRules.join("\n"),
+    classNames,
+  };
 }
 
 // Helper to collect all component types used in the JSON tree
@@ -199,11 +510,12 @@ function generateImports(types: Set<string>): string {
   return `import React from 'react';\n${imports}\n`;
 }
 
-// Helper to convert JSON node to JSX string (with style, data, and props)
+// Helper to convert JSON node to JSX string (with className, data, and props)
 function jsonToJsx(
   node: any,
-  placeholderMap: Map<string, string>,
-  interfaceProps: Record<string, string>,
+  placeholderMap: Map<string, { type: "styleMap" | "data"; key: string }>,
+  parsedInterface: ParsedInterface,
+  classNames: Map<any, string>,
   isRoot: boolean = false
 ): string {
   if (typeof node === "string" || typeof node === "number") {
@@ -220,7 +532,7 @@ function jsonToJsx(
     children = [],
   } = node;
 
-  // Replace placeholders in data (styleMap is handled directly in styleMapToJs)
+  // Replace placeholders in data
   const replacedData =
     data && Object.keys(data).length > 0
       ? replacePlaceholders(data, placeholderMap)
@@ -232,10 +544,13 @@ function jsonToJsx(
       if (
         replaced &&
         typeof replaced === "object" &&
-        replaced.__isPropRef === true &&
-        replaced.propName
+        replaced.__isPropRef === true
       ) {
-        return `${key}={props.${replaced.propName}}`;
+        if (replaced.type === "data") {
+          return `${key}={props.data?.${replaced.key}}`;
+        } else if (replaced.type === "styleMap") {
+          return `${key}={props.styleMap?.${replaced.key}}`;
+        }
       } else if (typeof replaced === "string") {
         return `${key}={\"${replaced.replace(/\"/g, '\\"')}\"}`;
       } else if (typeof replaced === "boolean") {
@@ -247,10 +562,23 @@ function jsonToJsx(
     .filter(Boolean)
     .join(" ");
 
-  if (styleMap) {
-    propStr +=
-      (propStr ? " " : "") +
-      `styleMap={${styleMapToJs(styleMap, placeholderMap, interfaceProps)}}`;
+  // Apply CSS variables to root component via inline styles
+  if (isRoot && parsedInterface.styleMap) {
+    const cssVarEntries = Object.keys(parsedInterface.styleMap).map(
+      (cssVar) => {
+        return `"${cssVar}": props.styleMap?.["${cssVar}"]`;
+      }
+    );
+    if (cssVarEntries.length > 0) {
+      propStr +=
+        (propStr ? " " : "") + `style={{ ${cssVarEntries.join(", ")} }}`;
+    }
+  }
+
+  // Use className instead of styleMap
+  const className = classNames.get(node);
+  if (className) {
+    propStr += (propStr ? " " : "") + `className="${className}"`;
   }
 
   if (data && Object.keys(data).length > 0) {
@@ -258,12 +586,9 @@ function jsonToJsx(
     const dataEntries = Object.entries(data).map(([k, v]) => {
       // Check if original value is a placeholder
       if (typeof v === "string") {
-        let propName = placeholderMap.get(v);
-        if (!propName) {
-          propName = getPropNameFromPlaceholder(v, interfaceProps);
-        }
-        if (propName) {
-          return `${k}: props.${propName}`;
+        const mapping = placeholderMap.get(v);
+        if (mapping && mapping.type === "data") {
+          return `${k}: props.data?.${mapping.key}`;
         }
       }
       // Check if replaced value is a prop reference marker
@@ -271,10 +596,11 @@ function jsonToJsx(
         replacedData &&
         replacedData[k] &&
         typeof replacedData[k] === "object" &&
-        replacedData[k].__isPropRef === true &&
-        replacedData[k].propName
+        replacedData[k].__isPropRef === true
       ) {
-        return `${k}: props.${replacedData[k].propName}`;
+        if (replacedData[k].type === "data") {
+          return `${k}: props.data?.${replacedData[k].key}`;
+        }
       }
       return `${k}: ${JSON.stringify(v)}`;
     });
@@ -286,21 +612,18 @@ function jsonToJsx(
   if (data && data.content !== undefined) {
     // Check if original content is a placeholder
     if (typeof data.content === "string") {
-      let propName = placeholderMap.get(data.content);
-      if (!propName) {
-        propName = getPropNameFromPlaceholder(data.content, interfaceProps);
-      }
-      if (propName) {
-        childrenJsx += `{props.${propName}}`;
+      const mapping = placeholderMap.get(data.content);
+      if (mapping && mapping.type === "data") {
+        childrenJsx += `{props.data?.${mapping.key}}`;
       } else if (replacedData && replacedData.content !== undefined) {
         // Check if content is a prop reference marker
         if (
           replacedData.content &&
           typeof replacedData.content === "object" &&
           replacedData.content.__isPropRef === true &&
-          replacedData.content.propName
+          replacedData.content.type === "data"
         ) {
-          childrenJsx += `{props.${replacedData.content.propName}}`;
+          childrenJsx += `{props.data?.${replacedData.content.key}}`;
         } else if (
           typeof replacedData.content === "string" ||
           typeof replacedData.content === "number"
@@ -316,10 +639,18 @@ function jsonToJsx(
   }
   if (Array.isArray(children)) {
     childrenJsx += children
-      .map((child) => jsonToJsx(child, placeholderMap, interfaceProps, false))
+      .map((child) =>
+        jsonToJsx(child, placeholderMap, parsedInterface, classNames, false)
+      )
       .join("");
   } else if (children) {
-    childrenJsx += jsonToJsx(children, placeholderMap, interfaceProps, false);
+    childrenJsx += jsonToJsx(
+      children,
+      placeholderMap,
+      parsedInterface,
+      classNames,
+      false
+    );
   }
   // If this is the root node, add props.children so users can pass children
   if (isRoot) {
@@ -331,18 +662,36 @@ function jsonToJsx(
 // Helper to generate interface definition string
 function generateInterface(
   interfaceName: string,
-  props: Record<string, string>,
+  parsedInterface: ParsedInterface,
   includeChildren: boolean = false
 ): string {
-  const propLines = Object.entries(props)
-    .map(([name, type]) => `  ${name}: ${type};`)
-    .join("\n");
-  const childrenLine = includeChildren ? "  children?: React.ReactNode;" : "";
-  const allPropLines = propLines
-    ? childrenLine
-      ? `${propLines}\n${childrenLine}`
-      : propLines
-    : childrenLine;
+  const propLines: string[] = [];
+
+  // Add styleMap if it exists
+  if (
+    parsedInterface.styleMap &&
+    Object.keys(parsedInterface.styleMap).length > 0
+  ) {
+    const styleMapEntries = Object.entries(parsedInterface.styleMap)
+      .map(([cssVar, type]) => `    "${cssVar}": ${type};`)
+      .join("\n");
+    propLines.push(`  styleMap: {\n${styleMapEntries}\n  };`);
+  }
+
+  // Add data if it exists
+  if (parsedInterface.data && Object.keys(parsedInterface.data).length > 0) {
+    const dataEntries = Object.entries(parsedInterface.data)
+      .map(([name, type]) => `    ${name}: ${type};`)
+      .join("\n");
+    propLines.push(`  data: {\n${dataEntries}\n  };`);
+  }
+
+  // Add children if needed
+  if (includeChildren || parsedInterface.children) {
+    propLines.push("  children?: React.ReactNode;");
+  }
+
+  const allPropLines = propLines.join("\n");
   return `interface ${interfaceName} {\n${allPropLines}\n}`;
 }
 
@@ -361,23 +710,42 @@ function generateComponents() {
   const interfaces = parseInterfaces(TYPES_FILE);
 
   const files = fs.readdirSync(EXAMPLES_DIR).filter((f) => f.endsWith(".json"));
+  const allCssContent: string[] = [];
+
   files.forEach((file) => {
     const filePath = path.join(EXAMPLES_DIR, file);
     const json = JSON.parse(fs.readFileSync(filePath, "utf-8"));
     const componentName = toComponentName(file);
 
     // Get interface for this component
-    const interfaceProps = interfaces.get(componentName) || {};
+    const parsedInterface = interfaces.get(componentName) || {
+      styleMap: undefined,
+      data: undefined,
+      children: false,
+    };
     const placeholderMap =
-      Object.keys(interfaceProps).length > 0
-        ? createPlaceholderMap(interfaceProps)
+      (parsedInterface.styleMap &&
+        Object.keys(parsedInterface.styleMap).length > 0) ||
+      (parsedInterface.data && Object.keys(parsedInterface.data).length > 0)
+        ? createPlaceholderMap(parsedInterface)
         : new Map();
 
     // Collect all component types used in this JSON
     const componentTypes = collectComponentTypes(json);
 
+    // Generate CSS file and get classNames map
+    const { css, classNames } = generateCssFile(
+      componentName,
+      json,
+      parsedInterface,
+      placeholderMap
+    );
+
     // Generate imports for the used components
     const imports = generateImports(componentTypes);
+
+    // Import CSS file
+    const cssImport = css ? `import './${componentName}.css';\n` : "";
 
     // Get root component type to check if it accepts children
     const rootComponentType = json?.type;
@@ -388,23 +756,35 @@ function generateComponents() {
 
     // Generate interface definition if it exists or if root accepts children
     let interfaceDef = "";
-    if (Object.keys(interfaceProps).length > 0 || rootAcceptsChildren) {
+    const hasInterface =
+      (parsedInterface.styleMap &&
+        Object.keys(parsedInterface.styleMap).length > 0) ||
+      (parsedInterface.data && Object.keys(parsedInterface.data).length > 0) ||
+      rootAcceptsChildren ||
+      parsedInterface.children;
+
+    if (hasInterface) {
       interfaceDef =
-        generateInterface(componentName, interfaceProps, rootAcceptsChildren) +
+        generateInterface(componentName, parsedInterface, rootAcceptsChildren) +
         "\n\n";
     }
 
     // Generate JSX with placeholder replacement (pass isRoot=true for root node)
-    const jsx = jsonToJsx(json, placeholderMap, interfaceProps, true);
+    const jsx = jsonToJsx(
+      json,
+      placeholderMap,
+      parsedInterface,
+      classNames,
+      true
+    );
 
     // Generate component signature
-    const componentSignature =
-      Object.keys(interfaceProps).length > 0 || rootAcceptsChildren
-        ? `export const ${componentName} = (props: ${componentName}) => (`
-        : `export const ${componentName} = () => (`;
+    const componentSignature = hasInterface
+      ? `export const ${componentName} = (props: ${componentName}) => (`
+      : `export const ${componentName} = () => (`;
 
-    // Combine imports, interface, and component
-    const component = `${imports}${interfaceDef}${componentSignature}\n  ${jsx}\n);\n`;
+    // Combine imports, CSS import, interface, and component
+    const component = `${imports}${cssImport}${interfaceDef}${componentSignature}\n  ${jsx}\n);\n`;
 
     fs.writeFileSync(
       path.join(OUTPUT_DIR, `${componentName}.tsx`),
@@ -412,7 +792,28 @@ function generateComponents() {
       "utf-8"
     );
     console.log(`Generated ${componentName}.tsx`);
+
+    // Generate CSS file
+    if (css) {
+      fs.writeFileSync(
+        path.join(OUTPUT_DIR, `${componentName}.css`),
+        css,
+        "utf-8"
+      );
+      console.log(`Generated ${componentName}.css`);
+      // Collect CSS for combined style.css
+      allCssContent.push(`/* ${componentName} */\n${css}\n`);
+    }
   });
+
+  // Generate combined style.css file
+  if (allCssContent.length > 0) {
+    const combinedCss = allCssContent.join("\n");
+    fs.writeFileSync(path.join(OUTPUT_DIR, "style.css"), combinedCss, "utf-8");
+    console.log(
+      `Generated style.css with ${allCssContent.length} component styles`
+    );
+  }
 }
 
 generateComponents();
