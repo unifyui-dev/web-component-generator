@@ -1,0 +1,40 @@
+{
+  "type": "Container",
+  "styleMap": {
+    "display": "flex",
+    "flexDirection": "row",
+    "justifyContent": "center",
+    "alignItems": "center",
+    "backgroundColor": "button-bg-color",
+    "paddingHorizontal": 24,
+    "paddingVertical": 12,
+    "borderRadius": 8,
+    "cursor": "pointer",
+    "minWidth": 120,
+    "minHeight": 44
+  },
+  "example": {
+    "styleMap": {
+      "backgroundColor": "#0066cc"
+    }
+  },
+  "children": [
+    {
+      "type": "Text",
+      "data": {
+        "content": "button-content"
+      },
+      "styleMap": {
+        "color": "#ffffff",
+        "fontSize": 16,
+        "fontWeight": "600",
+        "textAlign": "center"
+      },
+      "example": {
+        "data": {
+          "content": "Click Me"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "name": "@unifyui-dev/web-component-generator",
+  "type": "module",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@storybook/addon-a11y": "^10.1.2",
+    "@storybook/addon-docs": "^10.1.2",
+    "@storybook/addon-webpack5-compiler-swc": "^4.0.2",
+    "@storybook/react": "^10.1.2",
+    "@storybook/react-webpack5": "^10.1.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@types/jest": "^30.0.0",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "jest": "^30.2.0",
+    "jest-environment-jsdom": "^30.2.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "storybook": "^10.1.2",
+    "ts-jest": "^29.4.5",
+    "typescript": "^5.9.3"
+  }
+}

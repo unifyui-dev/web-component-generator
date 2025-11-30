@@ -1,0 +1,88 @@
+{
+  "type": "Container",
+  "styleMap": {
+    "display": "flex",
+    "flexDirection": "row",
+    "alignItems": "center",
+    "gap": 8,
+    "padding": 16
+  },
+  "children": [
+    {
+      "type": "Text",
+      "data": {
+        "content": "breadcrumb-1"
+      },
+      "styleMap": {
+        "color": "breadcrumb-link-color",
+        "fontSize": 14,
+        "textDecoration": "underline",
+        "cursor": "pointer"
+      },
+      "example": {
+        "data": {
+          "content": "Home"
+        },
+        "styleMap": {
+          "color": "#0066cc"
+        }
+      }
+    },
+    {
+      "type": "Text",
+      "data": {
+        "content": "/"
+      },
+      "styleMap": {
+        "color": "#666666",
+        "fontSize": 14
+      }
+    },
+    {
+      "type": "Text",
+      "data": {
+        "content": "breadcrumb-2"
+      },
+      "styleMap": {
+        "color": "breadcrumb-link-color",
+        "fontSize": 14,
+        "textDecoration": "underline",
+        "cursor": "pointer"
+      },
+      "example": {
+        "data": {
+          "content": "Products"
+        },
+        "styleMap": {
+          "color": "#0066cc"
+        }
+      }
+    },
+    {
+      "type": "Text",
+      "data": {
+        "content": "/"
+      },
+      "styleMap": {
+        "color": "#666666",
+        "fontSize": 14
+      }
+    },
+    {
+      "type": "Text",
+      "data": {
+        "content": "breadcrumb-3"
+      },
+      "styleMap": {
+        "color": "#333333",
+        "fontSize": 14,
+        "fontWeight": "500"
+      },
+      "example": {
+        "data": {
+          "content": "Electronics"
+        }
+      }
+    }
+  ]
+}

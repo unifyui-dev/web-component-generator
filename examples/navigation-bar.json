@@ -1,0 +1,171 @@
+{
+  "type": "Container",
+  "styleMap": {
+    "display": "flex",
+    "flexDirection": "row",
+    "justifyContent": "space-between",
+    "alignItems": "center",
+    "backgroundColor": "#ffffff",
+    "paddingHorizontal": 24,
+    "paddingVertical": 16,
+    "borderBottomWidth": 1,
+    "borderBottomColor": "#e0e0e0",
+    "position": "fixed",
+    "top": 0,
+    "left": 0,
+    "right": 0,
+    "zIndex": 100
+  },
+  "children": [
+    {
+      "type": "Container",
+      "styleMap": {
+        "display": "flex",
+        "flexDirection": "row",
+        "alignItems": "center",
+        "gap": 8
+      },
+      "children": [
+        {
+          "type": "Text",
+          "data": {
+            "content": "nav-logo-text"
+          },
+          "styleMap": {
+            "fontSize": 24,
+            "fontWeight": "700",
+            "color": "nav-logo-color"
+          },
+          "example": {
+            "data": {
+              "content": "Logo"
+            },
+            "styleMap": {
+              "color": "#0066cc"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "styleMap": {
+        "display": "flex",
+        "flexDirection": "row",
+        "alignItems": "center",
+        "gap": 32
+      },
+      "children": [
+        {
+          "type": "Text",
+          "data": {
+            "content": "nav-item-1"
+          },
+          "styleMap": {
+            "fontSize": 16,
+            "color": "nav-item-1-color",
+            "cursor": "pointer",
+            "fontWeight": "500"
+          },
+          "example": {
+            "data": {
+              "content": "Home"
+            },
+            "styleMap": {
+              "color": "#333333"
+            }
+          }
+        },
+        {
+          "type": "Text",
+          "data": {
+            "content": "nav-item-2"
+          },
+          "styleMap": {
+            "fontSize": 16,
+            "color": "nav-item-2-color",
+            "cursor": "pointer"
+          },
+          "example": {
+            "data": {
+              "content": "About"
+            },
+            "styleMap": {
+              "color": "#666666"
+            }
+          }
+        },
+        {
+          "type": "Text",
+          "data": {
+            "content": "nav-item-3"
+          },
+          "styleMap": {
+            "fontSize": 16,
+            "color": "nav-item-3-color",
+            "cursor": "pointer"
+          },
+          "example": {
+            "data": {
+              "content": "Products"
+            },
+            "styleMap": {
+              "color": "#666666"
+            }
+          }
+        },
+        {
+          "type": "Text",
+          "data": {
+            "content": "nav-item-4"
+          },
+          "styleMap": {
+            "fontSize": 16,
+            "color": "nav-item-4-color",
+            "cursor": "pointer"
+          },
+          "example": {
+            "data": {
+              "content": "Contact"
+            },
+            "styleMap": {
+              "color": "#666666"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "Container",
+      "styleMap": {
+        "display": "flex",
+        "flexDirection": "row",
+        "justifyContent": "center",
+        "alignItems": "center",
+        "backgroundColor": "#0066cc",
+        "paddingHorizontal": 20,
+        "paddingVertical": 10,
+        "borderRadius": 6,
+        "cursor": "pointer"
+      },
+      "children": [
+        {
+          "type": "Text",
+          "data": {
+            "content": "nav-cta-text"
+          },
+          "styleMap": {
+            "color": "#ffffff",
+            "fontSize": 14,
+            "fontWeight": "600"
+          },
+          "example": {
+            "data": {
+              "content": "Sign In"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

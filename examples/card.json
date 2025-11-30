@@ -1,0 +1,128 @@
+{
+  "type": "Container",
+  "styleMap": {
+    "display": "flex",
+    "flexDirection": "column",
+    "backgroundColor": "#ffffff",
+    "borderRadius": 12,
+    "borderWidth": 1,
+    "borderColor": "#e0e0e0",
+    "overflow": "hidden",
+    "maxWidth": 400,
+    "shadowColor": "#000000",
+    "shadowOffsetX": 0,
+    "shadowOffsetY": 2,
+    "shadowRadius": 8,
+    "shadowOpacity": 0.1,
+    "elevation": 2
+  },
+  "children": [
+    {
+      "type": "Image",
+      "data": {
+        "src": "card-image-src"
+      },
+      "styleMap": {
+        "width": "100%",
+        "height": 200
+      },
+      "example": {
+        "data": {
+          "src": "https://example.com/card-image.jpg"
+        }
+      }
+    },
+    {
+      "type": "Container",
+      "styleMap": {
+        "display": "flex",
+        "flexDirection": "column",
+        "padding": 20,
+        "gap": 12
+      },
+      "children": [
+        {
+          "type": "Text",
+          "data": {
+            "content": "card-title"
+          },
+          "styleMap": {
+            "fontSize": 24,
+            "fontWeight": "700",
+            "color": "#333333",
+            "marginBottom": 4
+          },
+          "example": {
+            "data": {
+              "content": "Card Title"
+            }
+          }
+        },
+        {
+          "type": "Text",
+          "data": {
+            "content": "card-description"
+          },
+          "styleMap": {
+            "fontSize": 14,
+            "color": "#666666",
+            "lineHeight": 1.5
+          },
+          "example": {
+            "data": {
+              "content": "This is a description of the card content. It can contain multiple lines of text to describe the card in detail."
+            }
+          }
+        },
+        {
+          "type": "Container",
+          "styleMap": {
+            "display": "flex",
+            "flexDirection": "row",
+            "justifyContent": "flex-end",
+            "marginTop": 8
+          },
+          "children": [
+            {
+              "type": "Container",
+              "styleMap": {
+                "display": "flex",
+                "flexDirection": "row",
+                "justifyContent": "center",
+                "alignItems": "center",
+                "backgroundColor": "card-button-bg-color",
+                "paddingHorizontal": 20,
+                "paddingVertical": 10,
+                "borderRadius": 6,
+                "cursor": "pointer"
+              },
+              "example": {
+                "styleMap": {
+                  "backgroundColor": "#0066cc"
+                }
+              },
+              "children": [
+                {
+                  "type": "Text",
+                  "data": {
+                    "content": "card-button-text"
+                  },
+                  "styleMap": {
+                    "color": "#ffffff",
+                    "fontSize": 14,
+                    "fontWeight": "600"
+                  },
+                  "example": {
+                    "data": {
+                      "content": "Learn More"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
